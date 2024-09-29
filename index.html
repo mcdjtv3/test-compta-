@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulateur de Comptabilité - États Financiers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: ;
+        }
+        .container {
+            width: 60%;
+            margin: auto;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .question {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .options {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            background-color: #E25E3E;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #FF9B50;
+        }
+        .financial-state {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .state-container {
+            width: 30%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        .state-container h3 {
+            text-align: center;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        .popup h3 {
+            margin-top: 0;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Où faut-il comptabiliser cette dépense ?</h1>
+    <div id="game">
+        <p id="question"></p>
+        <div class="options">
+            <button onclick="checkAnswer('Bilan')">Bilan</button>
+            <button onclick="checkAnswer('Compte de résultat')">Compte de résultat</button>
+        </div>
+        <p id="feedback"></p>
+    </div>
+
+    <div class="financial-state">
+        <div class="state-container">
+            <h3>Actif</h3>
+            <ul id="actif-list"></ul>
+            <p>Total Actif : <span id="actif-total">100000</span> €</p>
+        </div>
+        <div class="state-container">
+            <h3>Passif</h3>
+            <ul id="passif-list"></ul>
+            <p>Total Passif : <span id="passif-total">100000</span> €</p>
+        </div>
+        <div class="state-container">
+            <h3>Compte de Résultat</h3>
+            <ul id="compte-resultat-list"></ul>
+            <p>Total Résultat : <span id="compte-resultat-total">0</span> €</p>
+        </div>
+    </div>
+
+    <div id="equilibrium" style="text-align:center; margin-top: 20px;">
+        <p>Actif = Passif ? <span id="equilibrium-status">Oui</span></p>
+    </div>
+</div>
+
+<div class="popup" id="popup">
+    <h3>Détails du mouvement</h3>
+    <p id="popup-content"></p>
+    <button onclick="closePopup()">Fermer</button>
+</div>
+<div class="overlay" id="overlay"></div>
+
+<script>
+    const questions = [
+        { text: "La société de Joséphine a vendu des gâteaux pour un montant de 15 000 €.", correct: "Compte de résultat", amount: 15000, category: "7 - Produits", equivalent: "5 - Clients", cashFlow: "Encaissement d'exploitation" },
+        { text: "La société de Joséphine a payé 2 000 € pour les salaires de ses employés.", correct: "Compte de résultat", amount: -2000, category: "6 - Charges de personnel", equivalent: "5 - Banque", cashFlow: "Décaissement d'exploitation" },
+        { text: "Joséphine a contracté un emprunt bancaire de 50 000 €.", correct: "Bilan", amount: 50000, category: "1 - Passif", equivalent: "5 - Banque", cashFlow: "Encaissement de financement" },
+        { text: "La société a remboursé 5 000 € de son emprunt bancaire.", correct: "Bilan", amount: -5000, category: "1 - Passif", equivalent: "5 - Banque", cashFlow: "Décaissement de financement" },
+        { text: "La société a acheté des matières premières pour 8 000 €.", correct: "Bilan", amount: 8000, category: "3 - Stocks", equivalent: "5 - Banque", cashFlow: "Décaissement d'exploitation" },
+        { text: "La société de Joséphine a reçu 1 500 € d'intérêts bancaires.", correct: "Compte de résultat", amount: 1500, category: "7 - Produits financiers", equivalent: "5 - Banque", cashFlow: "Encaissement de financement" },
+        { text: "Joséphine a payé une facture de 500 € pour l'électricité de son entreprise.", correct: "Compte de résultat", amount: -500, category: "6 - Charges externes", equivalent: "5 - Banque", cashFlow: "Décaissement d'exploitation" },
+        { text: "La société a payé 3 000 € pour l'achat de nouveaux ordinateurs.", correct: "Bilan", amount: 3000, category: "2 - Immobilisations", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "Joséphine a perçu un remboursement de TVA pour 1 200 €.", correct: "Bilan", amount: 1200, category: "4 - Créances fiscales", equivalent: "5 - Banque", cashFlow: "Encaissement d'exploitation" },
+        { text: "La société de Joséphine a payé 700 € pour des frais de publicité.", correct: "Compte de résultat", amount: -700, category: "6 - Charges externes", equivalent: "5 - Banque", cashFlow: "Décaissement d'exploitation" },
+        { text: "Joséphine a investi 20 000 € dans de nouveaux équipements pour son entreprise.", correct: "Bilan", amount: 20000, category: "2 - Immobilisations", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société a reçu 2 500 € en avance de ses clients pour une commande de gâteaux.", correct: "Bilan", amount: 2500, category: "4 - Avances clients", equivalent: "5 - Banque", cashFlow: "Encaissement d'exploitation" },
+        { text: "Joséphine a payé 1 800 € pour des services de conseil comptable.", correct: "Compte de résultat", amount: -1800, category: "6 - Charges externes", equivalent: "5 - Banque", cashFlow: "Décaissement d'exploitation" },
+        { text: "La société de Joséphine a acheté des actions pour 1 090 €.", correct: "Bilan", amount: 1090, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 100 €.", correct: "Bilan", amount: 1100, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 110 €.", correct: "Bilan", amount: 1110, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 120 €.", correct: "Bilan", amount: 1120, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 130 €.", correct: "Bilan", amount: 1130, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 140 €.", correct: "Bilan", amount: 1140, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 150 €.", correct: "Bilan", amount: 1150, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a acheté des actions pour 1 160 €.", correct: "Bilan", amount: 1160, category: "2 - Immobilisations financières", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a payé un loyer pour 3 200 €.", correct: "Compte de résultat", amount: -3200, category: "6 - Charges locatives", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a reçu un acompte de 2 500 € sur une commande client.", correct: "Bilan", amount: 2500, category: "4 - Dettes clients", equivalent: "5 - Banque", cashFlow: "Encaissement opérationnel" },
+        { text: "La société de Joséphine a acheté des fournitures de bureau pour 400 €.", correct: "Compte de résultat", amount: -400, category: "6 - Charges d'exploitation", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a versé un dividende de 5 000 €.", correct: "Bilan", amount: 5000, category: "4 - Dettes à court terme", equivalent: "5 - Banque", cashFlow: "Décaissement financier" },
+        { text: "La société de Joséphine a emprunté 10 000 € auprès de la banque.", correct: "Bilan", amount: 10000, category: "1 - Emprunts bancaires", equivalent: "5 - Banque", cashFlow: "Encaissement financier" },
+        { text: "La société de Joséphine a payé des frais de gestion bancaire de 100 €.", correct: "Compte de résultat", amount: -100, category: "6 - Frais bancaires", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a acheté une nouvelle machine pour 12 000 €.", correct: "Bilan", amount: 12000, category: "2 - Immobilisations corporelles", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a réglé une facture d'électricité de 600 €.", correct: "Compte de résultat", amount: -600, category: "6 - Charges d'exploitation", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a perçu des loyers pour 2 800 €.", correct: "Compte de résultat", amount: 2800, category: "7 - Produits locatifs", equivalent: "5 - Banque", cashFlow: "Encaissement opérationnel" },
+        { text: "La société de Joséphine a vendu des marchandises à crédit pour 3 000 €.", correct: "Bilan", amount: 3000, category: "7 - Ventes", equivalent: "4 - Créances clients", cashFlow: "Aucune" },
+        { text: "La société de Joséphine a payé une prime d'assurance de 900 €.", correct: "Compte de résultat", amount: -900, category: "6 - Charges d'exploitation", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a réglé un acompte de 2 000 € sur l'achat d'une nouvelle machine.", correct: "Bilan", amount: 2000, category: "2 - Immobilisations corporelles", equivalent: "5 - Banque", cashFlow: "Décaissement d'investissement" },
+        { text: "La société de Joséphine a enregistré une dépréciation d'actifs pour 3 500 €.", correct: "Compte de résultat", amount: -3500, category: "6 - Charges d'exploitation", equivalent: "2 - Immobilisations corporelles", cashFlow: "Aucune" },
+        { text: "La société de Joséphine a émis des actions pour 5 000 €.", correct: "Bilan", amount: 5000, category: "1 - Capital social", equivalent: "5 - Banque", cashFlow: "Encaissement financier" },
+        { text: "La société de Joséphine a payé une réparation sur une machine pour 700 €.", correct: "Compte de résultat", amount: -700, category: "6 - Charges d'entretien", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a remboursé un prêt bancaire de 6 000 €.", correct: "Bilan", amount: -6000, category: "1 - Dettes financières", equivalent: "5 - Banque", cashFlow: "Décaissement financier" },
+        { text: "La société de Joséphine a reçu un paiement de 4 000 € pour une créance client.", correct: "Bilan", amount: -4000, category: "4 - Créances clients", equivalent: "5 - Banque", cashFlow: "Encaissement opérationnel" },
+        { text: "La société de Joséphine a payé des honoraires pour 1 300 €.", correct: "Compte de résultat", amount: -1300, category: "6 - Charges d'exploitation", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a émis un emprunt obligataire de 20 000 €.", correct: "Bilan", amount: 20000, category: "1 - Emprunts obligataires", equivalent: "5 - Banque", cashFlow: "Encaissement financier" },
+        { text: "La société de Joséphine a réalisé une perte sur la cession d'un actif immobilisé pour 2 000 €.", correct: "Compte de résultat", amount: -2000, category: "6 - Charges d'exploitation", equivalent: "2 - Immobilisations corporelles", cashFlow: "Aucune" },
+        { text: "La société de Joséphine a reçu des subventions pour 7 000 €.", correct: "Compte de résultat", amount: 7000, category: "7 - Subventions d'exploitation", equivalent: "5 - Banque", cashFlow: "Encaissement financier" },
+        { text: "La société de Joséphine a amorti un actif pour 5 000 €.", correct: "Compte de résultat", amount: -5000, category: "6 - Amortissements", equivalent: "2 - Immobilisations corporelles", cashFlow: "Aucune" },
+        { text: "La société de Joséphine a payé une facture fournisseur pour 800 €.", correct: "Compte de résultat", amount: -800, category: "6 - Achats", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a perçu des dividendes pour 1 500 €.", correct: "Compte de résultat", amount: 1500, category: "7 - Produits financiers", equivalent: "5 - Banque", cashFlow: "Encaissement financier" },
+        { text: "La société de Joséphine a vendu des marchandises pour 10 000 €.", correct: "Compte de résultat", amount: 10000, category: "7 - Ventes", equivalent: "5 - Banque", cashFlow: "Encaissement opérationnel" },
+        { text: "La société de Joséphine a payé un fournisseur pour 3 500 €.", correct: "Bilan", amount: -3500, category: "4 - Dettes fournisseurs", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" },
+        { text: "La société de Joséphine a payé une prime d'assurance de 2 000 €.", correct: "Compte de résultat", amount: -2000, category: "6 - Charges d'exploitation", equivalent: "5 - Banque", cashFlow: "Décaissement opérationnel" }
+    ];
+
+    let currentQuestion = 0;
+    let actifTotal = 100000;
+    let passifTotal = 100000;
+    let compteResultatTotal = 0;
+    let bilanTotal = 100000; // Base passif total from Bilan transactions
+    let resultatNetItem = null; // Single "Résultat net" line
+
+    // Existing logic for nextQuestion(), checkAnswer(), and financial state updates...
+
+    function checkAnswer(answer) {
+        const feedback = document.getElementById("feedback");
+        const question = questions[currentQuestion];
+
+        if (answer === question.correct) {
+            feedback.textContent = "Bonne réponse !";
+            feedback.style.color = "green";
+            addTransaction(answer, question.category, question.amount, question.cashFlow, question.equivalent);
+        } else {
+            feedback.textContent = "Mauvaise réponse. La bonne réponse était : " + question.correct;
+            feedback.style.color = "red";
+        }
+        setTimeout(nextQuestion, 2000); // Passe à la question suivante après 2 secondes
+    }
+
+    function addTransaction(state, category, amount, cashFlow, equivalent) {
+        const listItem = document.createElement('li');
+        listItem.textContent = `${category} : ${amount} €`;
+        const equivalentItem = document.createElement('li');
+        equivalentItem.textContent = `${equivalent} : ${amount} €`;
+
+        if (state === "Bilan") {
+            // Update Actif
+            document.getElementById("actif-list").appendChild(listItem);
+            actifTotal += amount;
+            document.getElementById("actif-total").textContent = actifTotal;
+
+            // Update Passif with counterpart
+            document.getElementById("passif-list").appendChild(equivalentItem);
+            bilanTotal += amount;
+            document.getElementById("passif-total").textContent = bilanTotal + compteResultatTotal;
+
+        } else if (state === "Compte de résultat") {
+            // Update Compte de résultat
+            document.getElementById("compte-resultat-list").appendChild(listItem);
+            compteResultatTotal += amount;
+            document.getElementById("compte-resultat-total").textContent = compteResultatTotal;
+
+            // Update or create single "Résultat net" line
+            if (!resultatNetItem) {
+                resultatNetItem = document.createElement('li');
+                resultatNetItem.textContent = `Résultat net : ${compteResultatTotal} €`;
+                document.getElementById("passif-list").appendChild(resultatNetItem);
+            } else {
+                resultatNetItem.textContent = `Résultat net : ${compteResultatTotal} €`;
+            }
+
+            // Update Passif total based on Bilan + Résultat net
+            document.getElementById("passif-total").textContent = bilanTotal + compteResultatTotal;
+
+            // Update Actif with counterpart
+            document.getElementById("actif-list").appendChild(equivalentItem);
+            actifTotal += amount;
+            document.getElementById("actif-total").textContent = actifTotal;
+        }
+
+        showPopup(`${category} : ${amount} €<br>Variation de trésorerie : ${cashFlow}`);
+        checkEquilibrium();
+    }
+
+    function checkEquilibrium() {
+        const equilibriumStatus = document.getElementById("equilibrium-status");
+        if (actifTotal === bilanTotal + compteResultatTotal) {
+            equilibriumStatus.textContent = "Oui";
+            equilibriumStatus.style.color = "green";
+        } else {
+            equilibriumStatus.textContent = "Non";
+            equilibriumStatus.style.color = "red";
+        }
+    }
+
+    function showPopup(content) {
+        document.getElementById("popup-content").innerHTML = content;
+        document.getElementById("popup").style.display = 'block';
+        document.getElementById("overlay").style.display = 'block';
+    }
+
+    function closePopup() {
+        document.getElementById("popup").style.display = 'none';
+        document.getElementById("overlay").style.display = 'none';
+    }
+
+    function nextQuestion() {
+        currentQuestion++;
+        if (currentQuestion < questions.length) {
+            document.getElementById("question").textContent = questions[currentQuestion].text;
+            document.getElementById("feedback").textContent = "";
+        } else {
+            document.getElementById("question").textContent = "Félicitations ! Vous avez terminé le jeu.";
+            document.querySelector(".options").style.display = "none";
+        }
+    }
+
+    // Start the first question
+    document.getElementById("question").textContent = questions[currentQuestion].text;
+</script>
+
+</body>
+</html>
